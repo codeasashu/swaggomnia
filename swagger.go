@@ -46,6 +46,9 @@ func parse(insomnia Insomnia) map[string]map[string][]Resource {
 			groupNames[resource.ID] = resource.Name
 			entities[resource.ID] = make(map[string][]Resource, 0)
 		}
+	}
+
+    for _, resource := range insomnia.Resources {
 		if resource.Type == REQUEST {
 			fetchVariables(&resource)
 			if entities[resource.ParentID] == nil {
@@ -94,6 +97,32 @@ func (s *Swagger) Generate(insomniaFile string, configFile string, outputFormat 
 	default:
 		log.Fatal("Only json or yaml formats are supported")
 	}
+}
+
+func (s *Swagger) GenerateBuffer(insomniaContents string, configContents string, outputFormat string) string {
+       var config SwaggerConfig
+        if err := json.Unmarshal([]byte(configContents), &config); err != nil {
+                log.Fatal(err)
+        }
+        s.Config = config
+        var insomnia Insomnia
+        if err := json.Unmarshal([]byte(insomniaContents), &insomnia); err != nil {
+                log.Fatal(err)
+        }
+       s.Entities = parse(insomnia)
+       yamlOutput := s.generateYAMLBuffer()
+       return string(yamlOutput)
+}
+
+func (s Swagger) generateYAMLBuffer() []byte {
+        tmpl := s.initTemplate()
+
+        var tpl bytes.Buffer
+        err := tmpl.Execute(&tpl, s)
+        if err != nil {
+                log.Fatal(err)
+        }
+       return tpl.Bytes()
 }
 
 func (s Swagger) initTemplate() *template.Template {

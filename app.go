@@ -4,9 +4,29 @@ import (
 	"fmt"
 	"os"
 	"time"
+    "log"
+    "net/http"
+    "io/ioutil"
 
 	"github.com/urfave/cli"
 )
+
+func handleApi(w http.ResponseWriter, r *http.Request){
+    configStr := r.PostFormValue("config")
+    insomniaFile, _, err := r.FormFile("insomnia")
+    if err != nil {
+        log.Fatal(err)
+        fmt.Fprintf(w, "INVALID_FILE")
+    }
+    insomniaBody, err := ioutil.ReadAll(insomniaFile)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    swagger := &Swagger{}
+    outputYaml := swagger.GenerateBuffer(string(insomniaBody), configStr, "yaml")
+    fmt.Fprintf(w, outputYaml)
+}
 
 func main() {
 	app := cli.NewApp()
@@ -14,13 +34,22 @@ func main() {
 	app.Usage = "Insomnia to Swagger converter"
 	app.Version = "1.1.0"
 	app.Compiled = time.Now()
-	app.Authors = []*cli.Author{
-		&cli.Author{
+	app.Authors = []cli.Author{
+		cli.Author{
 			Name:  "Nick Wallace",
 			Email: "nwallace@fyberstudios.com",
 		},
 	}
-	app.Commands = []*cli.Command{
+	app.Commands = []cli.Command{
+        {
+            Name:   "api",
+            Usage:  "Run as API Server",
+            Action: func(c *cli.Context) error {
+                http.HandleFunc("/", handleApi)
+                http.ListenAndServe(":8080", nil)
+                return nil
+            },
+        },
 		{
 			Name:    "generate",
 			Aliases: []string{"g"},
